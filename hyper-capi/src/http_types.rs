@@ -1,10 +1,10 @@
 use hyper::{Body, HeaderMap, Method, Request, Response, Uri};
 use hyper::header::{HeaderName, HeaderValue};
-use libc::size_t;
+use libc::{c_int, size_t};
 use std::ffi::c_void;
 
 use crate::task::{AsTaskType, TaskType};
-use crate::{hyper_code, IterStep};
+use crate::{hyper_code, ITER_CONTINUE};
 
 // ===== impl Request =====
 
@@ -95,7 +95,7 @@ unsafe impl AsTaskType for Response<Body> {
 
 // ===== impl Headers =====
 
-type IterFn = extern "C" fn(*mut c_void, *const u8, size_t, *const u8, size_t) -> IterStep;
+type IterFn = extern "C" fn(*mut c_void, *const u8, size_t, *const u8, size_t) -> c_int;
 
 ffi_fn! {
     fn hyper_headers_foreach(headers: *const HeaderMap, func: IterFn, userdata: *mut c_void) {
@@ -105,7 +105,7 @@ ffi_fn! {
             let val_ptr = value.as_bytes().as_ptr();
             let val_len = value.as_bytes().len();
 
-            if IterStep::Continue != func(userdata, name_ptr, name_len, val_ptr, val_len) {
+            if ITER_CONTINUE != func(userdata, name_ptr, name_len, val_ptr, val_len) {
                 break;
             }
         }

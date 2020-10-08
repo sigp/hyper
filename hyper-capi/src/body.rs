@@ -1,15 +1,15 @@
 use std::ffi::c_void;
 use std::ptr;
 
-use libc::size_t;
+use libc::{c_int, size_t};
 use hyper::body::{Body, Bytes, HttpBody as _};
 
-use crate::{AssertSendSafe, IterStep, task::Task};
+use crate::{AssertSendSafe, ITER_CONTINUE, task::Task};
 
 
 // ===== Body =====
 
-type ForEachFn = extern "C" fn(*mut c_void, *const Bytes) -> IterStep;
+type ForEachFn = extern "C" fn(*mut c_void, *const Bytes) -> c_int;
 
 ffi_fn! {
     fn hyper_body_foreach(body: *mut Body, func: ForEachFn, userdata: *mut c_void) -> *mut Task {
@@ -23,7 +23,7 @@ ffi_fn! {
         Box::into_raw(Task::boxed(async move {
             while let Some(item) = body.data().await {
                 let chunk = item?;
-                if IterStep::Continue != func(userdata.0, &chunk) {
+                if ITER_CONTINUE != func(userdata.0, &chunk) {
                     break;
                 }
             }

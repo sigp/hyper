@@ -13,13 +13,7 @@ pub enum hyper_code {
     Kaboom = 1,
 }
 
-#[repr(C)]
-#[derive(PartialEq)]
-pub enum IterStep {
-    Continue = 0,
-    #[allow(unused)]
-    Break,
-}
+const ITER_CONTINUE: libc::c_int = 0;
 
 struct AssertSendSafe<T>(T);
 
