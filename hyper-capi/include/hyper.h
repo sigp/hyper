@@ -311,6 +311,11 @@ void hyper_waker_wake(hyper_waker *waker);
 // Free a waker that hasn't been woken.
 void hyper_waker_free(hyper_waker *waker);
 
+// Misc
+
+// Returns a static ASCII string of the hyper_c version.
+const char *hyper_version(void);
+
 #ifdef __cplusplus
 }
 #endif

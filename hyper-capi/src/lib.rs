@@ -21,7 +21,14 @@ pub enum IterStep {
     Break,
 }
 
-
 struct AssertSendSafe<T>(T);
 
 unsafe impl<T> Send for AssertSendSafe<T> {}
+
+static VERSION_CSTR: &str = concat!(env!("CARGO_PKG_VERSION"), "\0");
+
+ffi_fn! {
+    fn hyper_version() -> *const u8 {
+        VERSION_CSTR.as_ptr()
+    }
+}
