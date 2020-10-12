@@ -115,18 +115,41 @@ ffi_fn! {
 ffi_fn! {
     fn hyper_headers_set(headers: *mut HeaderMap, name: *const u8, name_len: size_t, value: *const u8, value_len: size_t) -> hyper_code {
         let headers = unsafe { &mut *headers };
-        let name = unsafe { std::slice::from_raw_parts(name, name_len) };
-        let name = match HeaderName::from_bytes(name) {
-            Ok(name) => name,
-            Err(_) => return hyper_code::Kaboom,
-        };
-        let value = unsafe { std::slice::from_raw_parts(value, value_len) };
-        let value = match HeaderValue::from_bytes(value) {
-            Ok(val) => val,
-            Err(_) => return hyper_code::Kaboom,
-        };
-
-        headers.insert(name, value);
-        hyper_code::Ok
+        match unsafe { raw_name_value(name, name_len, value, value_len) } {
+            Ok((name, value)) => {
+                headers.insert(name, value);
+                hyper_code::Ok
+            }
+            Err(code) => code,
+        }
     }
+}
+
+ffi_fn! {
+    fn hyper_headers_add(headers: *mut HeaderMap, name: *const u8, name_len: size_t, value: *const u8, value_len: size_t) -> hyper_code {
+        let headers = unsafe { &mut *headers };
+
+        match unsafe { raw_name_value(name, name_len, value, value_len) } {
+            Ok((name, value)) => {
+                headers.append(name, value);
+                hyper_code::Ok
+            }
+            Err(code) => code,
+        }
+    }
+}
+
+unsafe fn raw_name_value(name: *const u8, name_len: size_t, value: *const u8, value_len: size_t) -> Result<(HeaderName, HeaderValue), hyper_code> {
+    let name = std::slice::from_raw_parts(name, name_len);
+    let name = match HeaderName::from_bytes(name) {
+        Ok(name) => name,
+        Err(_) => return Err(hyper_code::Kaboom),
+    };
+    let value = std::slice::from_raw_parts(value, value_len);
+    let value = match HeaderValue::from_bytes(value) {
+        Ok(val) => val,
+        Err(_) => return Err(hyper_code::Kaboom),
+    };
+
+    Ok((name, value))
 }

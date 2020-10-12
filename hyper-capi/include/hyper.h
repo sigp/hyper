@@ -169,21 +169,21 @@ hyper_body *hyper_response_body(hyper_response *response);
 // Sets the header with the provided name to the provided value.
 //
 // This overwrites any previous value set for the header.
-void hyper_headers_set(hyper_headers *headers,
-                       const uint8_t* name,
-                       size_t name_len,
-                       const uint8_t *value,
-                       size_t value_len);
+hyper_code hyper_headers_set(hyper_headers *headers,
+                             const uint8_t* name,
+                             size_t name_len,
+                             const uint8_t *value,
+                             size_t value_len);
 
 // Adds the provided value to the list of the provided name.
 //
 // If there were already existing values for the name, this will append the
 // new value to the internal list.
-void hyper_headers_add(hyper_headers *headers,
-                       const uint8_t* name,
-                       size_t name_len,
-                       const uint8_t *value,
-                       size_t value_len);
+hyper_code hyper_headers_add(hyper_headers *headers,
+                             const uint8_t* name,
+                             size_t name_len,
+                             const uint8_t *value,
+                             size_t value_len);
 
 // Iterates the headers passing each name and value pair to the callback.
 //
