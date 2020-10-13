@@ -9,6 +9,6 @@ documentation_style = "c"
 crates = ["hyper-capi"]
 
 [export.rename]
-"Exec" = "hyper_exec"
+"Exec" = "hyper_executor"
 "Io" = "hyper_io"
 "Task" = "hyper_task"

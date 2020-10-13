@@ -101,7 +101,7 @@ static int connect_to(const char *host, const char *port) {
 	return sfd;
 }
 
-static hyper_iter_step print_each_header(void *userdata,
+static int print_each_header(void *userdata,
                                          const uint8_t *name,
                                          size_t name_len,
                                          const uint8_t *value,
@@ -110,7 +110,7 @@ static hyper_iter_step print_each_header(void *userdata,
 	return HYPER_ITER_CONTINUE;
 }
 
-static hyper_iter_step print_each_chunk(void *userdata, const hyper_buf *chunk) {
+static int print_each_chunk(void *userdata, const hyper_buf *chunk) {
 	const uint8_t *buf = hyper_buf_bytes(chunk);
 	size_t len = hyper_buf_len(chunk);
 
@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
 	printf("http handshake ...\n");
 
 	// We need an executor generally to poll futures
-	hyper_executor *exec = hyper_executor_new();
+	const hyper_executor *exec = hyper_executor_new();
 
 	// Prepare client options
 	hyper_clientconn_options *opts = hyper_clientconn_options_new();

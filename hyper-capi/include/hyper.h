@@ -22,7 +22,7 @@ typedef enum {
   HYPER_TASK_RESPONSE,
 } hyper_task_return_type;
 
-typedef struct hyper_exec hyper_exec;
+typedef struct hyper_executor hyper_executor;
 
 typedef struct hyper_io hyper_io;
 
@@ -134,7 +134,7 @@ hyper_clientconn_options *hyper_clientconn_options_new(void);
 
  This does not consume the `options` or the `exec`.
  */
-void hyper_clientconn_options_exec(hyper_clientconn_options *opts, const hyper_exec *exec);
+void hyper_clientconn_options_exec(hyper_clientconn_options *opts, const hyper_executor *exec);
 
 /*
  Construct a new HTTP request.
@@ -285,12 +285,12 @@ void hyper_io_set_write(hyper_io *io, hyper_io_write_callback func);
 /*
  Creates a new task executor.
  */
-const hyper_exec *hyper_executor_new(void);
+const hyper_executor *hyper_executor_new(void);
 
 /*
  Frees an executor and any incomplete tasks still part of it.
  */
-void hyper_executor_free(const hyper_exec *exec);
+void hyper_executor_free(const hyper_executor *exec);
 
 /*
  Push a task onto the executor.
@@ -298,7 +298,7 @@ void hyper_executor_free(const hyper_exec *exec);
  The executor takes ownership of the task, it should not be accessed
  again unless returned back to the user with `hyper_executor_poll`.
  */
-hyper_code hyper_executor_push(const hyper_exec *exec, hyper_task *task);
+hyper_code hyper_executor_push(const hyper_executor *exec, hyper_task *task);
 
 /*
  Polls the executor, trying to make progress on any tasks that have notified
@@ -308,7 +308,7 @@ hyper_code hyper_executor_push(const hyper_exec *exec, hyper_task *task);
 
  If there are no ready tasks, this returns `NULL`.
  */
-hyper_task *hyper_executor_poll(const hyper_exec *exec);
+hyper_task *hyper_executor_poll(const hyper_executor *exec);
 
 /*
  Free a task.
