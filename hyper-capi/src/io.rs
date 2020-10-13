@@ -34,6 +34,16 @@ ffi_fn! {
 }
 
 ffi_fn! {
+    /// Free an unused `hyper_io *`.
+    ///
+    /// This is typically only useful if you aren't going to pass ownership
+    /// of the IO handle to hyper, such as with `hyper_clientconn_handshake()`.
+    fn hyper_io_free(io: *mut Io) {
+        drop(unsafe { Box::from_raw(io) });
+    }
+}
+
+ffi_fn! {
     /// Set the user data pointer for this IO to some value.
     ///
     /// This value is passed as an argument to the read and write callbacks.

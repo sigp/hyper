@@ -11,16 +11,16 @@
 #define HYPER_IO_ERROR 4294967294
 
 typedef enum {
-  Empty,
-  Error,
-  ClientConn,
-  Response,
-} TaskType;
+  HYPERE_OK,
+  HYPERE_INVALID_ARG,
+} hyper_code;
 
 typedef enum {
-  Ok = 0,
-  Kaboom = 1,
-} hyper_code;
+  HYPER_TASK_EMPTY,
+  HYPER_TASK_ERROR,
+  HYPER_TASK_CLIENTCONN,
+  HYPER_TASK_RESPONSE,
+} hyper_task_return_type;
 
 typedef struct hyper_exec hyper_exec;
 
@@ -64,11 +64,18 @@ extern "C" {
 const char *hyper_version(void);
 
 /*
+ Free a `hyper_body *`.
+ */
+void hyper_body_free(hyper_body *body);
+
+/*
  Return a task that will poll the body and execute the callback with each
  body chunk that is received.
 
  The `hyper_buf` pointer is only a borrowed reference, it cannot live outside
  the execution of the callback. You must make a copy to retain it.
+
+ This will consume the `hyper_body *`, you shouldn't use it anymore or free it.
  */
 hyper_task *hyper_body_foreach(hyper_body *body, hyper_body_foreach_callback func, void *userdata);
 
@@ -228,6 +235,14 @@ hyper_code hyper_headers_add(hyper_headers *headers,
 hyper_io *hyper_io_new(void);
 
 /*
+ Free an unused `hyper_io *`.
+
+ This is typically only useful if you aren't going to pass ownership
+ of the IO handle to hyper, such as with `hyper_clientconn_handshake()`.
+ */
+void hyper_io_free(hyper_io *io);
+
+/*
  Set the user data pointer for this IO to some value.
 
  This value is passed as an argument to the read and write callbacks.
@@ -313,7 +328,7 @@ void *hyper_task_value(hyper_task *task);
 /*
  Query the return type of this task.
  */
-TaskType hyper_task_type(hyper_task *task);
+hyper_task_return_type hyper_task_type(hyper_task *task);
 
 /*
  Set a user data pointer to be associated with this task.
