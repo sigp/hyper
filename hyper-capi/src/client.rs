@@ -2,25 +2,32 @@ use std::sync::Arc;
 
 use hyper::client::conn;
 use hyper::rt::Executor as _;
-use hyper::{Body, Request};
 
+use crate::http_types::{hyper_request, hyper_response};
 use crate::io::Io;
-use crate::task::{AsTaskType, Exec, Task, TaskType, WeakExec};
+use crate::task::{AsTaskType, Exec, Task, hyper_task_return_type, WeakExec};
 
-pub struct Options {
+pub struct hyper_clientconn_options {
     builder: conn::Builder,
     /// Use a `Weak` to prevent cycles.
     exec: WeakExec,
 }
 
-pub struct ClientConn {
+pub struct hyper_clientconn {
     tx: conn::SendRequest<hyper::Body>,
 }
 
-// ===== impl ClientConn =====
+// ===== impl hyper_clientconn =====
 
 ffi_fn! {
-    fn hyper_clientconn_handshake(io: *mut Io, options: *mut Options) -> *mut Task {
+    /// Starts an HTTP client connection handshake using the provided IO transport
+    /// and options.
+    ///
+    /// Both the `io` and the `options` are consumed in this function call.
+    ///
+    /// The returned `hyper_task *` must be polled with an executor until the
+    /// handshake completes, at which point the value can be taken.
+    fn hyper_clientconn_handshake(io: *mut Io, options: *mut hyper_clientconn_options) -> *mut Task {
         if io.is_null() {
             return std::ptr::null_mut();
         }
@@ -38,14 +45,18 @@ ffi_fn! {
                     options.exec.execute(Box::pin(async move {
                         let _ = conn.await;
                     }));
-                    ClientConn { tx }
+                    hyper_clientconn { tx }
                 })
         }))
     }
 }
 
 ffi_fn! {
-    fn hyper_clientconn_send(conn: *mut ClientConn, req: *mut Request<Body>) -> *mut Task {
+    /// Send a request on the client connection.
+    ///
+    /// Returns a task that needs to be polled until it is ready. When ready, the
+    /// task yields a `hyper_response *`.
+    fn hyper_clientconn_send(conn: *mut hyper_clientconn, req: *mut hyper_request) -> *mut Task {
         if conn.is_null() {
             return std::ptr::null_mut();
         }
@@ -54,29 +65,35 @@ ffi_fn! {
         }
 
         let req = unsafe { Box::from_raw(req) };
-        let fut = unsafe { &mut *conn }.tx.send_request(*req);
+        let fut = unsafe { &mut *conn }.tx.send_request(req.0);
+
+        let fut = async move {
+            fut.await.map(hyper_response)
+        };
 
         Box::into_raw(Task::boxed(fut))
     }
 }
 
 ffi_fn! {
-    fn hyper_clientconn_free(conn: *mut ClientConn) {
+    /// Free a `hyper_clientconn *`.
+    fn hyper_clientconn_free(conn: *mut hyper_clientconn) {
         drop(unsafe { Box::from_raw(conn) });
     }
 }
 
-unsafe impl AsTaskType for ClientConn {
-    fn as_task_type(&self) -> TaskType {
-        TaskType::ClientConn
+unsafe impl AsTaskType for hyper_clientconn {
+    fn as_task_type(&self) -> hyper_task_return_type {
+        hyper_task_return_type::HYPER_TASK_CLIENTCONN
     }
 }
 
-// ===== impl Options =====
+// ===== impl hyper_clientconn_options =====
 
 ffi_fn! {
-    fn hyper_clientconn_options_new() -> *mut Options {
-        Box::into_raw(Box::new(Options {
+    /// Creates a new set of HTTP clientconn options to be used in a handshake.
+    fn hyper_clientconn_options_new() -> *mut hyper_clientconn_options {
+        Box::into_raw(Box::new(hyper_clientconn_options {
             builder: conn::Builder::new(),
             exec: WeakExec::new(),
         }))
@@ -84,7 +101,10 @@ ffi_fn! {
 }
 
 ffi_fn! {
-    fn hyper_clientconn_options_exec(opts: *mut Options, exec: *const Exec) {
+    /// Set the client background task executor.
+    ///
+    /// This does not consume the `options` or the `exec`.
+    fn hyper_clientconn_options_exec(opts: *mut hyper_clientconn_options, exec: *const Exec) {
         let opts = unsafe { &mut *opts };
 
         let exec = unsafe { Arc::from_raw(exec) };

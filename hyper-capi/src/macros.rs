@@ -1,5 +1,6 @@
 macro_rules! ffi_fn {
-    (fn $name:ident($($arg:ident: $arg_ty:ty),*) -> $ret:ty $body:block) => {
+    ($(#[$doc:meta])* fn $name:ident($($arg:ident: $arg_ty:ty),*) -> $ret:ty $body:block) => {
+        $(#[$doc])*
         #[no_mangle]
         pub extern fn $name($($arg: $arg_ty),*) -> $ret {
             use std::panic::{self, AssertUnwindSafe};
@@ -11,7 +12,7 @@ macro_rules! ffi_fn {
         }
     };
 
-    (fn $name:ident($($arg:ident: $arg_ty:ty),*) $body:block) => {
-        ffi_fn!(fn $name($($arg: $arg_ty),*) -> () $body);
+    ($(#[$doc:meta])* fn $name:ident($($arg:ident: $arg_ty:ty),*) $body:block) => {
+        ffi_fn!($(#[$doc])* fn $name($($arg: $arg_ty),*) -> () $body);
     };
 }
