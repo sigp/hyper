@@ -247,7 +247,7 @@ void hyper_io_free(hyper_io *io);
 
  This value is passed as an argument to the read and write callbacks.
  */
-void hyper_io_set_data(hyper_io *io, void *data);
+void hyper_io_set_userdata(hyper_io *io, void *data);
 
 /*
  Set the read function for this IO transport.
@@ -336,10 +336,10 @@ hyper_task_return_type hyper_task_type(hyper_task *task);
  This value will be passed to task callbacks, and can be checked later
  with `hyper_task_userdata`.
  */
-void hyper_task_set_data(hyper_task *task, void *userdata);
+void hyper_task_set_userdata(hyper_task *task, void *userdata);
 
 /*
- Retrieve the userdata that has been set via `hyper_task_set_data`.
+ Retrieve the userdata that has been set via `hyper_task_set_userdata`.
  */
 void *hyper_task_userdata(hyper_task *task);
 

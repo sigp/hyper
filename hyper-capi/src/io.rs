@@ -47,7 +47,7 @@ ffi_fn! {
     /// Set the user data pointer for this IO to some value.
     ///
     /// This value is passed as an argument to the read and write callbacks.
-    fn hyper_io_set_data(io: *mut Io, data: *mut c_void) {
+    fn hyper_io_set_userdata(io: *mut Io, data: *mut c_void) {
         unsafe { &mut *io }.userdata = data;
     }
 }

@@ -293,7 +293,7 @@ ffi_fn! {
     ///
     /// This value will be passed to task callbacks, and can be checked later
     /// with `hyper_task_userdata`.
-    fn hyper_task_set_data(task: *mut Task, userdata: *mut c_void) {
+    fn hyper_task_set_userdata(task: *mut Task, userdata: *mut c_void) {
         if task.is_null() {
             return;
         }
@@ -303,7 +303,7 @@ ffi_fn! {
 }
 
 ffi_fn! {
-    /// Retrieve the userdata that has been set via `hyper_task_set_data`.
+    /// Retrieve the userdata that has been set via `hyper_task_set_userdata`.
     fn hyper_task_userdata(task: *mut Task) -> *mut c_void {
         if task.is_null() {
             return ptr::null_mut();

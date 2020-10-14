@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
 
 	// Hookup the IO
 	hyper_io *io = hyper_io_new();
-	hyper_io_set_data(io, (void *)conn);
+	hyper_io_set_userdata(io, (void *)conn);
 	hyper_io_set_read(io, read_cb);
 	hyper_io_set_write(io, write_cb);
 
@@ -172,7 +172,7 @@ int main(int argc, char *argv[]) {
 	hyper_clientconn_options_exec(opts, exec);
 
 	hyper_task *handshake = hyper_clientconn_handshake(io, opts);
-	hyper_task_set_data(handshake, (void *)EXAMPLE_HANDSHAKE);
+	hyper_task_set_userdata(handshake, (void *)EXAMPLE_HANDSHAKE);
 
 	// Let's wait for the handshake to finish...
 	hyper_executor_push(exec, handshake);
@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
 
 				// Send it!
 				hyper_task *send = hyper_clientconn_send(client, req);
-				hyper_task_set_data(send, (void *)EXAMPLE_SEND);
+				hyper_task_set_userdata(send, (void *)EXAMPLE_SEND);
 				printf("sending ...\n");
 				hyper_executor_push(exec, send);
 
@@ -245,7 +245,7 @@ int main(int argc, char *argv[]) {
 
 				hyper_body *resp_body = hyper_response_body(resp);
 				hyper_task *foreach = hyper_body_foreach(resp_body, print_each_chunk, NULL);
-				hyper_task_set_data(foreach, (void *)EXAMPLE_RESP_BODY);
+				hyper_task_set_userdata(foreach, (void *)EXAMPLE_RESP_BODY);
 				hyper_executor_push(exec, foreach);
 				
 				break;
