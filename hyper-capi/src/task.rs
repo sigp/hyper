@@ -53,13 +53,13 @@ pub struct hyper_waker {
     waker: std::task::Waker,
 }
 
-// cbindgen:rename-all=QualifiedScreamingSnakeCase
 #[repr(C)]
 pub enum hyper_task_return_type {
     HYPER_TASK_EMPTY,
     HYPER_TASK_ERROR,
     HYPER_TASK_CLIENTCONN,
     HYPER_TASK_RESPONSE,
+    HYPER_TASK_BUF,
 }
 
 pub(crate) unsafe trait AsTaskType {
@@ -338,12 +338,24 @@ where
 
 impl<T> IntoDynTaskType for hyper::Result<T>
 where
-    T: AsTaskType + Send + Sync + 'static,
+    T: IntoDynTaskType + Send + Sync + 'static,
 {
     fn into_dyn_task_type(self) -> BoxAny {
         match self {
-            Ok(val) => Box::new(val),
+            Ok(val) => val.into_dyn_task_type(),
             Err(err) => Box::new(err),
+        }
+    }
+}
+
+impl<T> IntoDynTaskType for Option<T>
+where
+    T: IntoDynTaskType + Send + Sync + 'static,
+{
+    fn into_dyn_task_type(self) -> BoxAny {
+        match self {
+            Some(val) => val.into_dyn_task_type(),
+            None => ().into_dyn_task_type(),
         }
     }
 }

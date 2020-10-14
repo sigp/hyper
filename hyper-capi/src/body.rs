@@ -1,10 +1,12 @@
 use std::ffi::c_void;
+use std::mem::ManuallyDrop;
 use std::ptr;
 
 use libc::{c_int, size_t};
 use hyper::body::{Body, Bytes, HttpBody as _};
 
-use crate::{AssertSendSafe, HYPER_ITER_CONTINUE, task::Task};
+use super::{AssertSendSafe, HYPER_ITER_CONTINUE};
+use super::task::{AsTaskType, Task, hyper_task_return_type};
 
 pub struct hyper_body(pub(super) Body);
 
@@ -24,6 +26,28 @@ ffi_fn! {
         drop(unsafe { Box::from_raw(body) });
     }
 }
+
+ffi_fn! {
+    /// Return a task that will poll the body for the next buffer of data.
+    ///
+    /// The task value may have different types depending on the outcome:
+    ///
+    /// - `HYPER_TASK_BUF`: Success, and more data was received.
+    /// - `HYPER_TASK_ERROR`: An error retrieving the data.
+    /// - `HYPER_TASK_EMPTY`: The body has finished streaming data.
+    ///
+    /// This does not consume the `hyper_body *`, so it may be used to again.
+    /// However, it MUST NOT be used or freed until the related task completes.
+    fn hyper_body_data(body: *mut hyper_body) -> *mut Task {
+        // This doesn't take ownership of the Body, so don't allow destructor
+        let mut body = ManuallyDrop::new(unsafe { Box::from_raw(body) });
+
+        Box::into_raw(Task::boxed(async move {
+            body.0.data().await.map(|res| res.map(hyper_buf))
+        }))
+    }
+}
+
 
 ffi_fn! {
     /// Return a task that will poll the body and execute the callback with each
@@ -55,7 +79,6 @@ ffi_fn! {
 
 // ===== Bytes =====
 
-
 ffi_fn! {
     /// Get a pointer to the bytes in this buffer.
     ///
@@ -80,5 +103,11 @@ ffi_fn! {
     /// Free this buffer.
     fn hyper_buf_free(buf: *mut hyper_buf) {
         drop(unsafe { Box::from_raw(buf) });
+    }
+}
+
+unsafe impl AsTaskType for hyper_buf {
+    fn as_task_type(&self) -> hyper_task_return_type {
+        hyper_task_return_type::HYPER_TASK_BUF
     }
 }

@@ -20,6 +20,7 @@ typedef enum {
   HYPER_TASK_ERROR,
   HYPER_TASK_CLIENTCONN,
   HYPER_TASK_RESPONSE,
+  HYPER_TASK_BUF,
 } hyper_task_return_type;
 
 typedef struct hyper_executor hyper_executor;
@@ -67,6 +68,20 @@ const char *hyper_version(void);
  Free a `hyper_body *`.
  */
 void hyper_body_free(hyper_body *body);
+
+/*
+ Return a task that will poll the body for the next buffer of data.
+
+ The task value may have different types depending on the outcome:
+
+ - `HYPER_TASK_BUF`: Success, and more data was received.
+ - `HYPER_TASK_ERROR`: An error retrieving the data.
+ - `HYPER_TASK_EMPTY`: The body has finished streaming data.
+
+ This does not consume the `hyper_body *`, so it may be used to again.
+ However, it MUST NOT be used or freed until the related task completes.
+ */
+hyper_task *hyper_body_data(hyper_body *body);
 
 /*
  Return a task that will poll the body and execute the callback with each
