@@ -4,9 +4,9 @@ use std::ptr;
 
 use libc::{c_int, size_t};
 
-use crate::body::{Body, Bytes, HttpBody as _};
+use super::task::{hyper_task_return_type, AsTaskType, Task};
 use super::{AssertSendSafe, HYPER_ITER_CONTINUE};
-use super::task::{AsTaskType, Task, hyper_task_return_type};
+use crate::body::{Body, Bytes, HttpBody as _};
 
 pub struct hyper_body(pub(super) Body);
 
@@ -47,7 +47,6 @@ ffi_fn! {
         }))
     }
 }
-
 
 ffi_fn! {
     /// Return a task that will poll the body and execute the callback with each

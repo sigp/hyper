@@ -5,7 +5,7 @@ use crate::rt::Executor as _;
 
 use super::http_types::{hyper_request, hyper_response};
 use super::io::Io;
-use super::task::{AsTaskType, Exec, Task, hyper_task_return_type, WeakExec};
+use super::task::{hyper_task_return_type, AsTaskType, Exec, Task, WeakExec};
 
 pub struct hyper_clientconn_options {
     builder: conn::Builder,

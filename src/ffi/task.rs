@@ -3,12 +3,15 @@ use std::future::Future;
 use std::mem::ManuallyDrop;
 use std::pin::Pin;
 use std::ptr;
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex, Weak};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, Weak,
+};
 use std::task::{Context, Poll};
 
 use futures_util::stream::{FuturesUnordered, Stream};
 
-use super::{AssertSendSafe, hyper_code};
+use super::{hyper_code, AssertSendSafe};
 
 type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type BoxAny = Box<dyn AsTaskType + Send + Sync>;
@@ -365,9 +368,7 @@ where
 impl hyper_context<'_> {
     pub(crate) fn wrap<'a, 'b>(cx: &'a mut Context<'b>) -> &'a mut hyper_context<'b> {
         // A struct with only one field has the same layout as that field.
-        unsafe {
-            std::mem::transmute::<&mut Context<'_>, &mut hyper_context<'_>>(cx)
-        }
+        unsafe { std::mem::transmute::<&mut Context<'_>, &mut hyper_context<'_>>(cx) }
     }
 }
 

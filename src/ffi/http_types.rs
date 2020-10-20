@@ -1,11 +1,11 @@
 use libc::{c_int, size_t};
 use std::ffi::c_void;
 
-use crate::{Body, HeaderMap, Method, Request, Response, Uri};
-use crate::header::{HeaderName, HeaderValue};
-use super::body::{hyper_body};
-use super::task::{AsTaskType, hyper_task_return_type};
+use super::body::hyper_body;
+use super::task::{hyper_task_return_type, AsTaskType};
 use super::{hyper_code, HYPER_ITER_CONTINUE};
+use crate::header::{HeaderName, HeaderValue};
+use crate::{Body, HeaderMap, Method, Request, Response, Uri};
 
 // ===== impl Request =====
 
@@ -121,14 +121,13 @@ unsafe impl AsTaskType for hyper_response {
 
 // ===== impl Headers =====
 
-type hyper_headers_foreach_callback = extern "C" fn(*mut c_void, *const u8, size_t, *const u8, size_t) -> c_int;
+type hyper_headers_foreach_callback =
+    extern "C" fn(*mut c_void, *const u8, size_t, *const u8, size_t) -> c_int;
 
 impl hyper_headers {
     pub(crate) fn wrap(cx: &mut HeaderMap) -> &mut hyper_headers {
         // A struct with only one field has the same layout as that field.
-        unsafe {
-            std::mem::transmute::<&mut HeaderMap, &mut hyper_headers>(cx)
-        }
+        unsafe { std::mem::transmute::<&mut HeaderMap, &mut hyper_headers>(cx) }
     }
 }
 
@@ -187,7 +186,12 @@ ffi_fn! {
     }
 }
 
-unsafe fn raw_name_value(name: *const u8, name_len: size_t, value: *const u8, value_len: size_t) -> Result<(HeaderName, HeaderValue), hyper_code> {
+unsafe fn raw_name_value(
+    name: *const u8,
+    name_len: size_t,
+    value: *const u8,
+    value_len: size_t,
+) -> Result<(HeaderName, HeaderValue), hyper_code> {
     let name = std::slice::from_raw_parts(name, name_len);
     let name = match HeaderName::from_bytes(name) {
         Ok(name) => name,
