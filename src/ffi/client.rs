@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use hyper::client::conn;
-use hyper::rt::Executor as _;
+use crate::client::conn;
+use crate::rt::Executor as _;
 
-use crate::http_types::{hyper_request, hyper_response};
-use crate::io::Io;
-use crate::task::{AsTaskType, Exec, Task, hyper_task_return_type, WeakExec};
+use super::http_types::{hyper_request, hyper_response};
+use super::io::Io;
+use super::task::{AsTaskType, Exec, Task, hyper_task_return_type, WeakExec};
 
 pub struct hyper_clientconn_options {
     builder: conn::Builder,
@@ -14,7 +14,7 @@ pub struct hyper_clientconn_options {
 }
 
 pub struct hyper_clientconn {
-    tx: conn::SendRequest<hyper::Body>,
+    tx: conn::SendRequest<crate::Body>,
 }
 
 // ===== impl hyper_clientconn =====
@@ -39,7 +39,7 @@ ffi_fn! {
         let io = unsafe { Box::from_raw(io) };
 
         Box::into_raw(Task::boxed(async move {
-            options.builder.handshake::<_, hyper::Body>(io)
+            options.builder.handshake::<_, crate::Body>(io)
                 .await
                 .map(|(tx, conn)| {
                     options.exec.execute(Box::pin(async move {

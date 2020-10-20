@@ -1,11 +1,11 @@
-use hyper::{Body, HeaderMap, Method, Request, Response, Uri};
-use hyper::header::{HeaderName, HeaderValue};
 use libc::{c_int, size_t};
 use std::ffi::c_void;
 
-use crate::body::{hyper_body};
-use crate::task::{AsTaskType, hyper_task_return_type};
-use crate::{hyper_code, HYPER_ITER_CONTINUE};
+use crate::{Body, HeaderMap, Method, Request, Response, Uri};
+use crate::header::{HeaderName, HeaderValue};
+use super::body::{hyper_body};
+use super::task::{AsTaskType, hyper_task_return_type};
+use super::{hyper_code, HYPER_ITER_CONTINUE};
 
 // ===== impl Request =====
 

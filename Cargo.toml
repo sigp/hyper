@@ -19,6 +19,9 @@ include = [
   #"build.rs",
 ]
 
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
 [dependencies]
 bytes = "0.5"
 futures-core = { version = "0.3", default-features = false }
@@ -38,6 +41,7 @@ want = "0.3"
 
 # Optional
 
+libc = { version = "0.2", optional = true }
 socket2 = { version = "0.3", optional = true }
 
 [dev-dependencies]
@@ -60,6 +64,7 @@ default = [
     "runtime",
     "stream"
 ]
+ffi = ["libc"]
 runtime = [
     "tcp",
     "tokio/rt-core",

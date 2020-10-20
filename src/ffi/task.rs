@@ -8,7 +8,7 @@ use std::task::{Context, Poll};
 
 use futures_util::stream::{FuturesUnordered, Stream};
 
-use crate::{AssertSendSafe, hyper_code};
+use super::{AssertSendSafe, hyper_code};
 
 type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type BoxAny = Box<dyn AsTaskType + Send + Sync>;
@@ -152,7 +152,7 @@ impl WeakExec {
     }
 }
 
-impl hyper::rt::Executor<BoxFuture<()>> for WeakExec {
+impl crate::rt::Executor<BoxFuture<()>> for WeakExec {
     fn execute(&self, fut: BoxFuture<()>) {
         if let Some(exec) = self.0.upgrade() {
             exec.spawn(Task::boxed(fut));
@@ -321,7 +321,7 @@ unsafe impl AsTaskType for () {
     }
 }
 
-unsafe impl AsTaskType for hyper::Error {
+unsafe impl AsTaskType for crate::Error {
     fn as_task_type(&self) -> hyper_task_return_type {
         hyper_task_return_type::HYPER_TASK_ERROR
     }
@@ -336,7 +336,7 @@ where
     }
 }
 
-impl<T> IntoDynTaskType for hyper::Result<T>
+impl<T> IntoDynTaskType for crate::Result<T>
 where
     T: IntoDynTaskType + Send + Sync + 'static,
 {

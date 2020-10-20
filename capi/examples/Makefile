@@ -6,10 +6,10 @@ TARGET = client
 
 OBJS = client.o
 
-RPATH=$(PWD)/../target/debug
+RPATH=$(PWD)/../../target/debug
 CFLAGS = -I../include
 LDFLAGS = -L$(RPATH) -Wl,-rpath,$(RPATH)
-LIBS = -lhyper_c
+LIBS = -lhyper
 
 $(TARGET): $(OBJS)
 	$(CC) -o $(TARGET) $(OBJS) $(LDFLAGS) $(LIBS)

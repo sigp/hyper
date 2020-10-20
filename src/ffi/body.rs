@@ -3,8 +3,8 @@ use std::mem::ManuallyDrop;
 use std::ptr;
 
 use libc::{c_int, size_t};
-use hyper::body::{Body, Bytes, HttpBody as _};
 
+use crate::body::{Body, Bytes, HttpBody as _};
 use super::{AssertSendSafe, HYPER_ITER_CONTINUE};
 use super::task::{AsTaskType, Task, hyper_task_return_type};
 

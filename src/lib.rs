@@ -61,6 +61,8 @@ pub mod body;
 pub mod client;
 #[doc(hidden)] // Mistakenly public...
 pub mod error;
+#[cfg(feature = "ffi")]
+mod ffi;
 mod headers;
 #[cfg(test)]
 mod mock;
