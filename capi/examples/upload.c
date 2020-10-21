@@ -101,21 +101,37 @@ static int connect_to(const char *host, const char *port) {
     return sfd;
 }
 
+struct upload_body {
+    int fd;
+    char *buf;
+    size_t len;
+};
+
+static int poll_req_upload(void *userdata,
+                           hyper_context *ctx,
+                           hyper_buf **chunk) {
+    struct upload_body* upload = userdata;
+
+    ssize_t res = read(upload->fd, upload->buf, upload->len);
+    if (res < 0) {
+        printf("error reading upload file: %d", errno);
+        return HYPER_POLL_ERROR;
+    } else if (res == 0) {
+        // All done!
+        *chunk = NULL;
+        return HYPER_POLL_READY;
+    } else {
+        *chunk = hyper_buf_copy(upload->buf, res);
+        return HYPER_POLL_READY;
+    }
+}
+
 static int print_each_header(void *userdata,
                                          const uint8_t *name,
                                          size_t name_len,
                                          const uint8_t *value,
                                          size_t value_len) {
     printf("%.*s: %.*s\n", (int) name_len, name, (int) value_len, value);
-    return HYPER_ITER_CONTINUE;
-}
-
-static int print_each_chunk(void *userdata, const hyper_buf *chunk) {
-    const uint8_t *buf = hyper_buf_bytes(chunk);
-    size_t len = hyper_buf_len(chunk);
-
-    write(1, buf, len);
-
     return HYPER_ITER_CONTINUE;
 }
 
@@ -129,16 +145,34 @@ typedef enum {
 #define STR_ARG(XX) (uint8_t *)XX, strlen(XX)
 
 int main(int argc, char *argv[]) {
-        const char *host = argc > 1 ? argv[1] : "httpbin.org";
-        const char *port = argc > 2 ? argv[2] : "80";
-        const char *path = argc > 3 ? argv[3] : "/";
-        printf("connecting to port %s on %s...\n", port, host);
+    const char *file = argc > 1 ? argv[1] : NULL;
+    const char *host = argc > 2 ? argv[2] : "httpbin.org";
+    const char *port = argc > 3 ? argv[3] : "80";
+    const char *path = argc > 4 ? argv[4] : "/post";
 
-        int fd = connect_to(host, port);
+    if (!file) {
+        printf("Pass a file path as the first argument.\n");
+        return 1;
+    }
+
+    struct upload_body upload;
+    upload.fd = open(file, O_RDONLY);
+
+    if (upload.fd < 0) {
+        printf("error opening file to upload: %d", errno);
+        return 1;
+    }
+
+    upload.len = 8192;
+    upload.buf = malloc(upload.len);
+
+    printf("connecting to port %s on %s...\n", port, host);
+
+    int fd = connect_to(host, port);
     if (fd < 0) {
         return 1;
     }
-        printf("connected to %s, now get %s\n", host, path);
+    printf("connected to %s, now upload to %s\n", host, path);
 
     if (fcntl(fd, F_SETFL, O_NONBLOCK) != 0) {
         printf("failed to set socket to non-blocking\n");
@@ -177,6 +211,9 @@ int main(int argc, char *argv[]) {
     // Let's wait for the handshake to finish...
     hyper_executor_push(exec, handshake);
 
+    // This body will get filled in eventually...
+    hyper_body *resp_body = NULL;
+
     // The polling state machine!
     while (1) {
         // Poll all ready tasks and act on them...
@@ -185,14 +222,16 @@ int main(int argc, char *argv[]) {
             if (!task) {
                 break;
             }
+            hyper_task_return_type task_type = hyper_task_type(task);
+
             switch ((example_id) hyper_task_userdata(task)) {
             case EXAMPLE_HANDSHAKE:
                 ;
-                if (hyper_task_type(task) == HYPER_TASK_ERROR) {
+                if (task_type == HYPER_TASK_ERROR) {
                     printf("handshake error!\n");
                     return 1;
                 }
-                assert(hyper_task_type(task) == HYPER_TASK_CLIENTCONN);
+                assert(task_type == HYPER_TASK_CLIENTCONN);
 
                 printf("preparing http request ...\n");
 
@@ -201,7 +240,7 @@ int main(int argc, char *argv[]) {
 
                 // Prepare the request
                 hyper_request *req = hyper_request_new();
-                if (hyper_request_set_method(req, STR_ARG("GET"))) {
+                if (hyper_request_set_method(req, STR_ARG("POST"))) {
                     printf("error setting method\n");
                     return 1;
                 }
@@ -212,6 +251,12 @@ int main(int argc, char *argv[]) {
 
                 hyper_headers *req_headers = hyper_request_headers(req);
                 hyper_headers_set(req_headers,  STR_ARG("host"), STR_ARG(host));
+
+                // Prepare the req body
+                hyper_body *body = hyper_body_new();
+                hyper_body_set_userdata(body, &upload);
+                hyper_body_set_data_func(body, poll_req_upload);
+                hyper_request_set_body(req, body);
 
                 // Send it!
                 hyper_task *send = hyper_clientconn_send(client, req);
@@ -225,41 +270,55 @@ int main(int argc, char *argv[]) {
                 break;
             case EXAMPLE_SEND:
                 ;
-                if (hyper_task_type(task) == HYPER_TASK_ERROR) {
+                if (task_type == HYPER_TASK_ERROR) {
                     printf("send error!\n");
                     return 1;
                 }
-                assert(hyper_task_type(task) == HYPER_TASK_RESPONSE);
+                assert(task_type == HYPER_TASK_RESPONSE);
 
                 // Take the results
                 hyper_response *resp = hyper_task_value(task);
                 hyper_task_free(task);
 
                 uint16_t http_status = hyper_response_status(resp);
-                
+
                 printf("\nResponse Status: %d\n", http_status);
 
                 hyper_headers *headers = hyper_response_headers(resp);
                 hyper_headers_foreach(headers, print_each_header, NULL);
                 printf("\n");
 
-                hyper_body *resp_body = hyper_response_body(resp);
-                hyper_task *foreach = hyper_body_foreach(resp_body, print_each_chunk, NULL);
-                hyper_task_set_userdata(foreach, (void *)EXAMPLE_RESP_BODY);
-                hyper_executor_push(exec, foreach);
-                
+                resp_body = hyper_response_body(resp);
+
+                // Set us up to peel data from the body a chunk at a time
+                hyper_task *body_data = hyper_body_data(resp_body);
+                hyper_task_set_userdata(body_data, (void *)EXAMPLE_RESP_BODY);
+                hyper_executor_push(exec, body_data);
+
                 break;
             case EXAMPLE_RESP_BODY:
                 ;
-                if (hyper_task_type(task) == HYPER_TASK_ERROR) {
+                if (task_type == HYPER_TASK_ERROR) {
                     printf("body error!\n");
                     return 1;
                 }
 
-                assert(hyper_task_type(task) == HYPER_TASK_EMPTY);
+                if (task_type == HYPER_TASK_BUF) {
+                    hyper_buf *chunk = hyper_task_value(task);
+                    write(1, hyper_buf_bytes(chunk), hyper_buf_len(chunk));
+                    hyper_buf_free(chunk);
 
-                printf("\n -- Done! -- \n");
-                return 0;
+                    hyper_task *body_data = hyper_body_data(resp_body);
+                    hyper_task_set_userdata(body_data, (void *)EXAMPLE_RESP_BODY);
+                    hyper_executor_push(exec, body_data);
+                } else {
+                    assert(task_type == HYPER_TASK_EMPTY);
+                    hyper_task_free(task);
+                    hyper_body_free(resp_body);
+
+                    printf("\n -- Done! -- \n");
+                    return 0;
+                }
             case EXAMPLE_NOT_SET:
                 // A background task for hyper completed...
                 hyper_task_free(task);

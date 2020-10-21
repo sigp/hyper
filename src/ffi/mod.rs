@@ -10,6 +10,8 @@ mod http_types;
 mod io;
 mod task;
 
+pub(crate) use self::body::UserBody;
+
 #[repr(C)]
 pub enum hyper_code {
     HYPERE_OK,

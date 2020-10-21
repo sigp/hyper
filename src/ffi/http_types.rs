@@ -75,6 +75,20 @@ ffi_fn! {
     }
 }
 
+ffi_fn! {
+    /// Set the body of the request.
+    ///
+    /// The default is an empty body.
+    ///
+    /// This takes ownership of the `hyper_body *`, you must not use it or
+    /// free it after setting it on the request.
+    fn hyper_request_set_body(req: *mut hyper_request, body: *mut hyper_body) -> hyper_code {
+        let body = unsafe { Box::from_raw(body) };
+        *unsafe { &mut *req }.0.body_mut() = body.0;
+        hyper_code::HYPERE_OK
+    }
+}
+
 // ===== impl Response =====
 
 ffi_fn! {

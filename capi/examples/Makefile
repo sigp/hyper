@@ -14,5 +14,9 @@ LIBS = -lhyper
 $(TARGET): $(OBJS)
 	$(CC) -o $(TARGET) $(OBJS) $(LDFLAGS) $(LIBS)
 
+upload: upload.o
+	$(CC) -o upload upload.o $(LDFLAGS) $(LIBS)
+
 clean:
 	rm -f $(OBJS) $(TARGET)
+	rm -f upload upload.o

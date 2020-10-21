@@ -44,6 +44,8 @@ enum Kind {
         content_length: DecodedLength,
         recv: h2::RecvStream,
     },
+    #[cfg(feature = "ffi")]
+    Ffi(crate::ffi::UserBody),
     #[cfg(feature = "stream")]
     Wrapped(
         SyncWrapper<
@@ -255,6 +257,21 @@ impl Body {
         }
     }
 
+    #[cfg(feature = "ffi")]
+    pub(crate) fn as_ffi_mut(&mut self) -> &mut crate::ffi::UserBody {
+        match self.kind {
+            Kind::Ffi(ref mut body) => return body,
+            _ => {
+                self.kind = Kind::Ffi(crate::ffi::UserBody::new());
+            }
+        }
+
+        match self.kind {
+            Kind::Ffi(ref mut body) => body,
+            _ => unreachable!(),
+        }
+    }
+
     fn poll_inner(&mut self, cx: &mut task::Context<'_>) -> Poll<Option<crate::Result<Bytes>>> {
         match self.kind {
             Kind::Once(ref mut val) => Poll::Ready(val.take().map(Ok)),
@@ -287,6 +304,9 @@ impl Body {
                 Some(Err(e)) => Poll::Ready(Some(Err(crate::Error::new_body(e)))),
                 None => Poll::Ready(None),
             },
+
+            #[cfg(feature = "ffi")]
+            Kind::Ffi(ref mut body) => body.poll_data(cx),
 
             #[cfg(feature = "stream")]
             Kind::Wrapped(ref mut s) => match ready!(s.get_mut().as_mut().poll_next(cx)) {
@@ -340,6 +360,10 @@ impl HttpBody for Body {
                 }
                 Err(e) => Poll::Ready(Err(crate::Error::new_h2(e))),
             },
+
+            #[cfg(feature = "ffi")]
+            Kind::Ffi(ref mut body) => body.poll_trailers(cx),
+
             _ => Poll::Ready(Ok(None)),
         }
     }
@@ -349,6 +373,8 @@ impl HttpBody for Body {
             Kind::Once(ref val) => val.is_none(),
             Kind::Chan { content_length, .. } => content_length == DecodedLength::ZERO,
             Kind::H2 { recv: ref h2, .. } => h2.is_end_stream(),
+            #[cfg(feature = "ffi")]
+            Kind::Ffi(..) => false,
             #[cfg(feature = "stream")]
             Kind::Wrapped(..) => false,
         }
@@ -358,6 +384,8 @@ impl HttpBody for Body {
         match self.kind {
             Kind::Once(Some(ref val)) => SizeHint::with_exact(val.len() as u64),
             Kind::Once(None) => SizeHint::with_exact(0),
+            #[cfg(feature = "ffi")]
+            Kind::Ffi(..) => SizeHint::default(),
             #[cfg(feature = "stream")]
             Kind::Wrapped(..) => SizeHint::default(),
             Kind::Chan { content_length, .. } | Kind::H2 { content_length, .. } => {

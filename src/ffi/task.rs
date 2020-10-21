@@ -10,11 +10,16 @@ use std::sync::{
 use std::task::{Context, Poll};
 
 use futures_util::stream::{FuturesUnordered, Stream};
+use libc::c_int;
 
 use super::{hyper_code, AssertSendSafe};
 
 type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type BoxAny = Box<dyn AsTaskType + Send + Sync>;
+
+pub const HYPER_POLL_READY: c_int = 0;
+pub const HYPER_POLL_PENDING: c_int = 1;
+pub const HYPER_POLL_ERROR: c_int = 3;
 
 pub struct Exec {
     /// The executor of all task futures.

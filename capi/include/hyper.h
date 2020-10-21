@@ -10,6 +10,12 @@
 
 #define HYPER_IO_ERROR 4294967294
 
+#define HYPER_POLL_READY 0
+
+#define HYPER_POLL_PENDING 1
+
+#define HYPER_POLL_ERROR 3
+
 typedef enum {
   HYPERE_OK,
   HYPERE_INVALID_ARG,
@@ -49,6 +55,8 @@ typedef struct hyper_waker hyper_waker;
 
 typedef int (*hyper_body_foreach_callback)(void*, const hyper_buf*);
 
+typedef int (*hyper_body_data_callback)(void*, hyper_context*, hyper_buf**);
+
 typedef int (*hyper_headers_foreach_callback)(void*, const uint8_t*, size_t, const uint8_t*, size_t);
 
 typedef size_t (*hyper_io_read_callback)(void*, hyper_context*, uint8_t*, size_t);
@@ -63,6 +71,13 @@ extern "C" {
  Returns a static ASCII (null terminated) string of the hyper version.
  */
 const char *hyper_version(void);
+
+/*
+ Create a new "empty" body.
+
+ If not configured, this body acts as an empty payload.
+ */
+hyper_body *hyper_body_new(void);
 
 /*
  Free a `hyper_body *`.
@@ -93,6 +108,42 @@ hyper_task *hyper_body_data(hyper_body *body);
  This will consume the `hyper_body *`, you shouldn't use it anymore or free it.
  */
 hyper_task *hyper_body_foreach(hyper_body *body, hyper_body_foreach_callback func, void *userdata);
+
+/*
+ Set userdata on this body, which will be passed to callback functions.
+ */
+void hyper_body_set_userdata(hyper_body *body, void *userdata);
+
+/*
+ Set the data callback for this body.
+
+ The callback is called each time hyper needs to send more data for the
+ body. It is passed the value from `hyper_body_set_userdata`.
+
+ If there is data available, the `hyper_buf **` argument should be set
+ to a `hyper_buf *` containing the data, and `HYPER_POLL_READY` should
+ be returned.
+
+ Returning `HYPER_POLL_READY` while the `hyper_buf **` argument points
+ to `NULL` will indicate the body has completed all data.
+
+ If there is more data to send, but it isn't yet available, a
+ `hyper_waker` should be saved from the `hyper_context *` argument, and
+ `HYPER_POLL_PENDING` should be returned. You must wake the saved waker
+ to signal the task when data is available.
+
+ If some error has occurred, you can return `HYPER_POLL_ERROR` to abort
+ the body.
+ */
+void hyper_body_set_data_func(hyper_body *body, hyper_body_data_callback func);
+
+/*
+ Create a new `hyper_buf *` by copying the provided bytes.
+
+ This makes an owned copy of the bytes, so the `buf` argument can be
+ freed or changed afterwards.
+ */
+hyper_buf *hyper_buf_copy(const uint8_t *buf, size_t len);
 
 /*
  Get a pointer to the bytes in this buffer.
@@ -178,6 +229,16 @@ hyper_code hyper_request_set_uri(hyper_request *req, const uint8_t *uri, size_t 
  `hyper_request` has been consumed.
  */
 hyper_headers *hyper_request_headers(hyper_request *req);
+
+/*
+ Set the body of the request.
+
+ The default is an empty body.
+
+ This takes ownership of the `hyper_body *`, you must not use it or
+ free it after setting it on the request.
+ */
+hyper_code hyper_request_set_body(hyper_request *req, hyper_body *body);
 
 /*
  Free an HTTP response after using it.
