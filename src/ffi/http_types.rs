@@ -1,5 +1,6 @@
 use libc::{c_int, size_t};
 use std::ffi::c_void;
+use bytes::Bytes;
 
 use super::body::hyper_body;
 use super::task::{hyper_task_return_type, AsTaskType};
@@ -13,7 +14,10 @@ pub struct hyper_request(pub(super) Request<Body>);
 
 pub struct hyper_response(pub(super) Response<Body>);
 
-pub struct hyper_headers(pub(super) HeaderMap);
+pub struct hyper_headers {
+    pub(super) headers: HeaderMap,
+    orig_casing: HeaderMap<Bytes>,
+}
 
 ffi_fn! {
     /// Construct a new HTTP request.
@@ -71,7 +75,7 @@ ffi_fn! {
     /// This is not an owned reference, so it should not be accessed after the
     /// `hyper_request` has been consumed.
     fn hyper_request_headers(req: *mut hyper_request) -> *mut hyper_headers {
-        hyper_headers::wrap(unsafe { &mut *req }.0.headers_mut())
+        hyper_headers::get_or_default(unsafe { &mut *req }.0.extensions_mut())
     }
 }
 
@@ -113,7 +117,7 @@ ffi_fn! {
     /// This is not an owned reference, so it should not be accessed after the
     /// `hyper_response` has been freed.
     fn hyper_response_headers(resp: *mut hyper_response) -> *mut hyper_headers {
-        hyper_headers::wrap(unsafe { &mut *resp }.0.headers_mut())
+        hyper_headers::get_or_default(unsafe { &mut *resp }.0.extensions_mut())
     }
 }
 
@@ -139,9 +143,15 @@ type hyper_headers_foreach_callback =
     extern "C" fn(*mut c_void, *const u8, size_t, *const u8, size_t) -> c_int;
 
 impl hyper_headers {
-    pub(crate) fn wrap(cx: &mut HeaderMap) -> &mut hyper_headers {
-        // A struct with only one field has the same layout as that field.
-        unsafe { std::mem::transmute::<&mut HeaderMap, &mut hyper_headers>(cx) }
+    pub(crate) fn get_or_default(ext: &mut http::Extensions) -> &mut hyper_headers {
+        if let None = ext.get_mut::<hyper_headers>() {
+            ext.insert(hyper_headers {
+                headers: Default::default(),
+                orig_casing: Default::default(),
+            });
+        }
+
+        ext.get_mut::<hyper_headers>().unwrap()
     }
 }
 
@@ -153,7 +163,7 @@ ffi_fn! {
     /// The callback should return `HYPER_ITER_CONTINUE` to keep iterating, or
     /// `HYPER_ITER_BREAK` to stop.
     fn hyper_headers_foreach(headers: *const hyper_headers, func: hyper_headers_foreach_callback, userdata: *mut c_void) {
-        for (name, value) in unsafe { &*headers }.0.iter() {
+        for (name, value) in unsafe { &*headers }.headers.iter() {
             let name_ptr = name.as_str().as_bytes().as_ptr();
             let name_len = name.as_str().as_bytes().len();
             let val_ptr = value.as_bytes().as_ptr();
@@ -174,7 +184,7 @@ ffi_fn! {
         let headers = unsafe { &mut *headers };
         match unsafe { raw_name_value(name, name_len, value, value_len) } {
             Ok((name, value)) => {
-                headers.0.insert(name, value);
+                headers.headers.insert(name, value);
                 hyper_code::HYPERE_OK
             }
             Err(code) => code,
@@ -192,7 +202,7 @@ ffi_fn! {
 
         match unsafe { raw_name_value(name, name_len, value, value_len) } {
             Ok((name, value)) => {
-                headers.0.append(name, value);
+                headers.headers.append(name, value);
                 hyper_code::HYPERE_OK
             }
             Err(code) => code,
