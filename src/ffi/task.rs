@@ -276,7 +276,13 @@ ffi_fn! {
         let task = unsafe { &mut *task };
 
         if let Some(val) = task.output.take() {
-            Box::into_raw(val) as *mut c_void
+            let p = Box::into_raw(val) as *mut c_void;
+            // protect from returning fake pointers to empty types
+            if p == std::ptr::NonNull::<c_void>::dangling().as_ptr() {
+                ptr::null_mut()
+            } else {
+                p
+            }
         } else {
             ptr::null_mut()
         }
