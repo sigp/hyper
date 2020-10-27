@@ -203,6 +203,11 @@ hyper_clientconn_options *hyper_clientconn_options_new(void);
 void hyper_clientconn_options_exec(hyper_clientconn_options *opts, const hyper_executor *exec);
 
 /*
+ Free a `hyper_clientconn_options *`.
+ */
+void hyper_clientconn_options_free(hyper_clientconn_options *conn);
+
+/*
  Construct a new HTTP request.
  */
 hyper_request *hyper_request_new(void);

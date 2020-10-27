@@ -115,3 +115,10 @@ ffi_fn! {
         opts.exec = weak_exec;
     }
 }
+
+ffi_fn! {
+    /// Free a `hyper_clientconn_options *`.
+    fn hyper_clientconn_options_free(opts: *mut hyper_clientconn_options) {
+        drop(unsafe { Box::from_raw(opts) });
+    }
+}
