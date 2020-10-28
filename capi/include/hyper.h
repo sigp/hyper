@@ -6,6 +6,8 @@
 
 #define HYPER_ITER_CONTINUE 0
 
+#define HYPER_ITER_BREAK 1
+
 #define HYPER_IO_PENDING 4294967295
 
 #define HYPER_IO_ERROR 4294967294
@@ -104,6 +106,9 @@ hyper_task *hyper_body_data(hyper_body *body);
 
  The `hyper_buf` pointer is only a borrowed reference, it cannot live outside
  the execution of the callback. You must make a copy to retain it.
+
+ The callback should return `HYPER_ITER_CONTINUE` to continue iterating
+ chunks as they are received, or `HYPER_ITER_BREAK` to cancel.
 
  This will consume the `hyper_body *`, you shouldn't use it anymore or free it.
  */
@@ -205,7 +210,7 @@ void hyper_clientconn_options_exec(hyper_clientconn_options *opts, const hyper_e
 /*
  Free a `hyper_clientconn_options *`.
  */
-void hyper_clientconn_options_free(hyper_clientconn_options *conn);
+void hyper_clientconn_options_free(hyper_clientconn_options *opts);
 
 /*
  Construct a new HTTP request.
@@ -278,7 +283,7 @@ hyper_body *hyper_response_body(hyper_response *resp);
  The `userdata` pointer is also passed to the callback.
 
  The callback should return `HYPER_ITER_CONTINUE` to keep iterating, or
- some other value to stop.
+ `HYPER_ITER_BREAK` to stop.
  */
 void hyper_headers_foreach(const hyper_headers *headers,
                            hyper_headers_foreach_callback func,

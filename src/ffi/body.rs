@@ -74,6 +74,9 @@ ffi_fn! {
     /// The `hyper_buf` pointer is only a borrowed reference, it cannot live outside
     /// the execution of the callback. You must make a copy to retain it.
     ///
+    /// The callback should return `HYPER_ITER_CONTINUE` to continue iterating
+    /// chunks as they are received, or `HYPER_ITER_BREAK` to cancel.
+    ///
     /// This will consume the `hyper_body *`, you shouldn't use it anymore or free it.
     fn hyper_body_foreach(body: *mut hyper_body, func: hyper_body_foreach_callback, userdata: *mut c_void) -> *mut Task {
         if body.is_null() {

@@ -151,7 +151,7 @@ ffi_fn! {
     /// The `userdata` pointer is also passed to the callback.
     ///
     /// The callback should return `HYPER_ITER_CONTINUE` to keep iterating, or
-    /// some other value to stop.
+    /// `HYPER_ITER_BREAK` to stop.
     fn hyper_headers_foreach(headers: *const hyper_headers, func: hyper_headers_foreach_callback, userdata: *mut c_void) {
         for (name, value) in unsafe { &*headers }.0.iter() {
             let name_ptr = name.as_str().as_bytes().as_ptr();

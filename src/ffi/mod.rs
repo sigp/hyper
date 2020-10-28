@@ -20,6 +20,8 @@ pub enum hyper_code {
 
 pub const HYPER_ITER_CONTINUE: libc::c_int = 0;
 
+pub const HYPER_ITER_BREAK: libc::c_int = 1;
+
 struct AssertSendSafe<T>(T);
 
 unsafe impl<T> Send for AssertSendSafe<T> {}
