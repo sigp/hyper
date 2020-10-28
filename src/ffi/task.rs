@@ -1,6 +1,5 @@
 use std::ffi::c_void;
 use std::future::Future;
-use std::mem::ManuallyDrop;
 use std::pin::Pin;
 use std::ptr;
 use std::sync::{
@@ -39,11 +38,13 @@ pub struct Exec {
 
     /// This is used to track when a future calls `wake` while we are within
     /// `Exec::poll_next`.
-    is_woken: AtomicBool,
+    is_woken: Arc<ExecWaker>,
 }
 
 #[derive(Clone)]
 pub(crate) struct WeakExec(Weak<Exec>);
+
+struct ExecWaker(AtomicBool);
 
 pub struct Task {
     future: BoxFuture<BoxAny>,
@@ -85,7 +86,7 @@ impl Exec {
         Arc::new(Exec {
             driver: Mutex::new(FuturesUnordered::new()),
             spawn_queue: Mutex::new(Vec::new()),
-            is_woken: AtomicBool::new(false),
+            is_woken: Arc::new(ExecWaker(AtomicBool::new(false))),
         })
     }
 
@@ -100,27 +101,26 @@ impl Exec {
             .push(TaskFuture { task: Some(task) });
     }
 
-    fn poll_next(arc_self: &Arc<Exec>) -> Option<Box<Task>> {
-        let me = &*arc_self;
+    fn poll_next(&self) -> Option<Box<Task>> {
         // Drain the queue first.
-        me.drain_queue();
+        self.drain_queue();
 
-        let waker = futures_util::task::waker_ref(arc_self);
+        let waker = futures_util::task::waker_ref(&self.is_woken);
         let mut cx = Context::from_waker(&waker);
 
         loop {
-            match Pin::new(&mut *me.driver.lock().unwrap()).poll_next(&mut cx) {
+            match Pin::new(&mut *self.driver.lock().unwrap()).poll_next(&mut cx) {
                 Poll::Ready(val) => return val,
                 Poll::Pending => {
                     // Check if any of the pending tasks tried to spawn
                     // some new tasks. If so, drain into the driver and loop.
-                    if me.drain_queue() {
+                    if self.drain_queue() {
                         continue;
                     }
 
                     // If the driver called `wake` while we were polling,
                     // we should poll again immediately!
-                    if me.is_woken.swap(false, Ordering::SeqCst) {
+                    if self.is_woken.0.swap(false, Ordering::SeqCst) {
                         continue;
                     }
 
@@ -146,9 +146,9 @@ impl Exec {
     }
 }
 
-impl futures_util::task::ArcWake for Exec {
-    fn wake_by_ref(me: &Arc<Exec>) {
-        me.is_woken.store(true, Ordering::SeqCst);
+impl futures_util::task::ArcWake for ExecWaker {
+    fn wake_by_ref(me: &Arc<ExecWaker>) {
+        me.0.store(true, Ordering::SeqCst);
     }
 }
 
@@ -208,8 +208,8 @@ ffi_fn! {
     fn hyper_executor_poll(exec: *const Exec) -> *mut Task {
         // We only want an `&Arc` in here, so wrap in a `ManuallyDrop` so we
         // don't accidentally trigger a ref_dec of the Arc.
-        let exec = ManuallyDrop::new(unsafe { Arc::from_raw(exec) });
-        match Exec::poll_next(&*exec) {
+        let exec = unsafe { &*exec };
+        match exec.poll_next() {
             Some(task) => Box::into_raw(task),
             None => ptr::null_mut(),
         }
