@@ -64,6 +64,19 @@ static size_t write_cb(void *userdata, hyper_context *ctx, const uint8_t *buf, s
     }
 }
 
+static void free_conn_data(struct conn_data *conn) {
+    if (conn->read_waker) {
+        hyper_waker_free(conn->read_waker);
+        conn->read_waker = NULL;
+    }
+    if (conn->write_waker) {
+        hyper_waker_free(conn->write_waker);
+        conn->write_waker = NULL;
+    }
+
+    free(conn);
+}
+
 static int connect_to(const char *host, const char *port) {
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
@@ -236,7 +249,7 @@ int main(int argc, char *argv[]) {
                 hyper_task_free(task);
 
                 uint16_t http_status = hyper_response_status(resp);
-                
+
                 printf("\nResponse Status: %d\n", http_status);
 
                 hyper_headers *headers = hyper_response_headers(resp);
@@ -247,7 +260,10 @@ int main(int argc, char *argv[]) {
                 hyper_task *foreach = hyper_body_foreach(resp_body, print_each_chunk, NULL);
                 hyper_task_set_userdata(foreach, (void *)EXAMPLE_RESP_BODY);
                 hyper_executor_push(exec, foreach);
-                
+
+                // No longer need the response
+                hyper_response_free(resp);
+
                 break;
             case EXAMPLE_RESP_BODY:
                 ;
@@ -259,6 +275,12 @@ int main(int argc, char *argv[]) {
                 assert(hyper_task_type(task) == HYPER_TASK_EMPTY);
 
                 printf("\n -- Done! -- \n");
+
+                // Cleaning up before exiting
+                hyper_task_free(task);
+                hyper_executor_free(exec);
+                free_conn_data(conn);
+
                 return 0;
             case EXAMPLE_NOT_SET:
                 // A background task for hyper completed...

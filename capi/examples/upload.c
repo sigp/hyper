@@ -64,6 +64,19 @@ static size_t write_cb(void *userdata, hyper_context *ctx, const uint8_t *buf, s
     }
 }
 
+static void free_conn_data(struct conn_data *conn) {
+    if (conn->read_waker) {
+        hyper_waker_free(conn->read_waker);
+        conn->read_waker = NULL;
+    }
+    if (conn->write_waker) {
+        hyper_waker_free(conn->write_waker);
+        conn->write_waker = NULL;
+    }
+
+    free(conn);
+}
+
 static int connect_to(const char *host, const char *port) {
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
@@ -162,10 +175,6 @@ int main(int argc, char *argv[]) {
         printf("error opening file to upload: %d", errno);
         return 1;
     }
-
-    upload.len = 8192;
-    upload.buf = malloc(upload.len);
-
     printf("connecting to port %s on %s...\n", port, host);
 
     int fd = connect_to(host, port);
@@ -178,6 +187,9 @@ int main(int argc, char *argv[]) {
         printf("failed to set socket to non-blocking\n");
         return 1;
     }
+
+    upload.len = 8192;
+    upload.buf = malloc(upload.len);
 
     fd_set fds_read;
     fd_set fds_write;
@@ -295,6 +307,9 @@ int main(int argc, char *argv[]) {
                 hyper_task_set_userdata(body_data, (void *)EXAMPLE_RESP_BODY);
                 hyper_executor_push(exec, body_data);
 
+                // No longer need the response
+                hyper_response_free(resp);
+
                 break;
             case EXAMPLE_RESP_BODY:
                 ;
@@ -307,16 +322,25 @@ int main(int argc, char *argv[]) {
                     hyper_buf *chunk = hyper_task_value(task);
                     write(1, hyper_buf_bytes(chunk), hyper_buf_len(chunk));
                     hyper_buf_free(chunk);
+                    hyper_task_free(task);
 
                     hyper_task *body_data = hyper_body_data(resp_body);
                     hyper_task_set_userdata(body_data, (void *)EXAMPLE_RESP_BODY);
                     hyper_executor_push(exec, body_data);
+
+                    break;
                 } else {
                     assert(task_type == HYPER_TASK_EMPTY);
                     hyper_task_free(task);
                     hyper_body_free(resp_body);
 
                     printf("\n -- Done! -- \n");
+
+                    // Cleaning up before exiting
+                    hyper_executor_free(exec);
+                    free_conn_data(conn);
+                    free(upload.buf);
+
                     return 0;
                 }
             case EXAMPLE_NOT_SET:
