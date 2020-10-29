@@ -479,6 +479,7 @@ where
                 version: parts.version,
                 subject: parts.status,
                 headers: parts.headers,
+                extensions: parts.extensions,
             };
             Poll::Ready(Some(Ok((head, body))))
         } else {
@@ -558,6 +559,7 @@ where
                             version: parts.version,
                             subject: RequestLine(parts.method, parts.uri),
                             headers: parts.headers,
+                            extensions: parts.extensions,
                         };
                         self.callback = Some(cb);
                         Poll::Ready(Some(Ok((head, body))))
@@ -582,6 +584,7 @@ where
                     *res.status_mut() = msg.subject;
                     *res.headers_mut() = msg.headers;
                     *res.version_mut() = msg.version;
+                    *res.extensions_mut() = msg.extensions;
                     cb.send(Ok(res));
                     Ok(())
                 } else {

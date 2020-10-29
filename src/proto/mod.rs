@@ -8,7 +8,7 @@ pub(crate) mod h1;
 pub(crate) mod h2;
 
 /// An Incoming Message head. Includes request/status line, and headers.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Debug, Default)]
 pub struct MessageHead<S> {
     /// HTTP version of the message.
     pub version: Version,
@@ -16,6 +16,7 @@ pub struct MessageHead<S> {
     pub subject: S,
     /// Headers of the Incoming message.
     pub headers: HeaderMap,
+    pub(crate) extensions: http::Extensions,
 }
 
 /// An incoming request message.

@@ -142,6 +142,7 @@ impl Http1Transaction for Server {
                         is_http_11 = false;
                         Version::HTTP_10
                     };
+                    trace!("headers: {:?}", &req.headers);
 
                     record_header_indices(bytes, &req.headers, &mut headers_indices)?;
                     headers_len = req.headers.len();
@@ -264,6 +265,7 @@ impl Http1Transaction for Server {
                 version,
                 subject,
                 headers,
+                extensions: http::Extensions::default(),
             },
             decode: decoder,
             expect_continue,
@@ -683,6 +685,9 @@ impl Http1Transaction for Client {
 
             let mut keep_alive = version == Version::HTTP_11;
 
+            #[cfg(feature = "ffi")]
+            let mut header_case_map = crate::ffi::HeaderCaseMap::default();
+
             headers.reserve(headers_len);
             for header in &headers_indices[..headers_len] {
                 let name = header_name!(&slice[header.name.0..header.name.1]);
@@ -698,13 +703,28 @@ impl Http1Transaction for Client {
                         keep_alive = headers::connection_keep_alive(&value);
                     }
                 }
+
+                #[cfg(feature = "ffi")]
+                if ctx.preserve_header_case {
+                    header_case_map.append(&name, slice.slice(header.name.0..header.name.1));
+                }
+
                 headers.append(name, value);
+            }
+
+            #[allow(unused_mut)]
+            let mut extensions = http::Extensions::default();
+
+            #[cfg(feature = "ffi")]
+            if ctx.preserve_header_case {
+                extensions.insert(header_case_map);
             }
 
             let head = MessageHead {
                 version,
                 subject: status,
                 headers,
+                extensions,
             };
             if let Some((decode, is_upgrade)) = Client::decoder(&head, ctx.req_method)? {
                 return Ok(Some(ParsedMessage {
@@ -756,11 +776,28 @@ impl Http1Transaction for Client {
         }
         extend(dst, b"\r\n");
 
-        if msg.title_case_headers {
-            write_headers_title_case(&msg.head.headers, dst);
-        } else {
-            write_headers(&msg.head.headers, dst);
+        #[cfg(feature = "ffi")]
+        {
+            if msg.title_case_headers {
+                write_headers_title_case(&msg.head.headers, dst);
+            } else if let Some(orig_headers) =
+                msg.head.extensions.get::<crate::ffi::HeaderCaseMap>()
+            {
+                write_headers_original_case(&msg.head.headers, orig_headers, dst);
+            } else {
+                write_headers(&msg.head.headers, dst);
+            }
         }
+
+        #[cfg(not(feature = "ffi"))]
+        {
+            if msg.title_case_headers {
+                write_headers_title_case(&msg.head.headers, dst);
+            } else {
+                write_headers(&msg.head.headers, dst);
+            }
+        }
+
         extend(dst, b"\r\n");
         msg.head.headers.clear(); //TODO: remove when switching to drain()
 
@@ -1067,6 +1104,25 @@ fn write_headers_title_case(headers: &HeaderMap, dst: &mut Vec<u8>) {
 fn write_headers(headers: &HeaderMap, dst: &mut Vec<u8>) {
     for (name, value) in headers {
         extend(dst, name.as_str().as_bytes());
+        extend(dst, b": ");
+        extend(dst, value.as_bytes());
+        extend(dst, b"\r\n");
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[cold]
+fn write_headers_original_case(
+    headers: &HeaderMap,
+    orig_case: &crate::ffi::HeaderCaseMap,
+    dst: &mut Vec<u8>,
+) {
+    for (name, value) in headers {
+        if let Some(orig_name) = orig_case.get(name) {
+            extend(dst, orig_name);
+        } else {
+            extend(dst, name.as_str().as_bytes());
+        }
         extend(dst, b": ");
         extend(dst, value.as_bytes());
         extend(dst, b"\r\n");

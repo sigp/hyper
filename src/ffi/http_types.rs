@@ -1,6 +1,6 @@
+use bytes::Bytes;
 use libc::{c_int, size_t};
 use std::ffi::c_void;
-use bytes::Bytes;
 
 use super::body::hyper_body;
 use super::task::{hyper_task_return_type, AsTaskType};
@@ -8,16 +8,20 @@ use super::{hyper_code, HYPER_ITER_CONTINUE};
 use crate::header::{HeaderName, HeaderValue};
 use crate::{Body, HeaderMap, Method, Request, Response, Uri};
 
-// ===== impl Request =====
-
 pub struct hyper_request(pub(super) Request<Body>);
 
 pub struct hyper_response(pub(super) Response<Body>);
 
 pub struct hyper_headers {
     pub(super) headers: HeaderMap,
-    orig_casing: HeaderMap<Bytes>,
+    orig_casing: HeaderCaseMap,
 }
+
+// Will probably be moved to `hyper::ext::http1`
+#[derive(Debug, Default)]
+pub(crate) struct HeaderCaseMap(HeaderMap<Bytes>);
+
+// ===== impl hyper_request =====
 
 ffi_fn! {
     /// Construct a new HTTP request.
@@ -93,7 +97,16 @@ ffi_fn! {
     }
 }
 
-// ===== impl Response =====
+impl hyper_request {
+    pub(super) fn finalize_request(&mut self) {
+        if let Some(headers) = self.0.extensions_mut().remove::<hyper_headers>() {
+            *self.0.headers_mut() = headers.headers;
+            self.0.extensions_mut().insert(headers.orig_casing);
+        }
+    }
+}
+
+// ===== impl hyper_response =====
 
 ffi_fn! {
     /// Free an HTTP response after using it.
@@ -131,6 +144,22 @@ ffi_fn! {
     }
 }
 
+impl hyper_response {
+    pub(super) fn wrap(mut resp: Response<Body>) -> hyper_response {
+        let headers = std::mem::take(resp.headers_mut());
+        let orig_casing = resp
+            .extensions_mut()
+            .remove::<HeaderCaseMap>()
+            .unwrap_or_default();
+        resp.extensions_mut().insert(hyper_headers {
+            headers,
+            orig_casing,
+        });
+
+        hyper_response(resp)
+    }
+}
+
 unsafe impl AsTaskType for hyper_response {
     fn as_task_type(&self) -> hyper_task_return_type {
         hyper_task_return_type::HYPER_TASK_RESPONSE
@@ -143,7 +172,7 @@ type hyper_headers_foreach_callback =
     extern "C" fn(*mut c_void, *const u8, size_t, *const u8, size_t) -> c_int;
 
 impl hyper_headers {
-    pub(crate) fn get_or_default(ext: &mut http::Extensions) -> &mut hyper_headers {
+    pub(super) fn get_or_default(ext: &mut http::Extensions) -> &mut hyper_headers {
         if let None = ext.get_mut::<hyper_headers>() {
             ext.insert(hyper_headers {
                 headers: Default::default(),
@@ -163,9 +192,16 @@ ffi_fn! {
     /// The callback should return `HYPER_ITER_CONTINUE` to keep iterating, or
     /// `HYPER_ITER_BREAK` to stop.
     fn hyper_headers_foreach(headers: *const hyper_headers, func: hyper_headers_foreach_callback, userdata: *mut c_void) {
-        for (name, value) in unsafe { &*headers }.headers.iter() {
-            let name_ptr = name.as_str().as_bytes().as_ptr();
-            let name_len = name.as_str().as_bytes().len();
+        let headers = unsafe { &*headers };
+        for (name, value) in headers.headers.iter() {
+            let (name_ptr, name_len) = if let Some(orig_name) = headers.orig_casing.get(name) {
+                (orig_name.as_ptr(), orig_name.len())
+            } else {
+                (
+                    name.as_str().as_bytes().as_ptr(),
+                    name.as_str().as_bytes().len(),
+                )
+            };
             let val_ptr = value.as_bytes().as_ptr();
             let val_len = value.as_bytes().len();
 
@@ -183,8 +219,9 @@ ffi_fn! {
     fn hyper_headers_set(headers: *mut hyper_headers, name: *const u8, name_len: size_t, value: *const u8, value_len: size_t) -> hyper_code {
         let headers = unsafe { &mut *headers };
         match unsafe { raw_name_value(name, name_len, value, value_len) } {
-            Ok((name, value)) => {
-                headers.headers.insert(name, value);
+            Ok((name, value, orig_name)) => {
+                headers.headers.insert(&name, value);
+                headers.orig_casing.insert(name, orig_name);
                 hyper_code::HYPERE_OK
             }
             Err(code) => code,
@@ -201,8 +238,9 @@ ffi_fn! {
         let headers = unsafe { &mut *headers };
 
         match unsafe { raw_name_value(name, name_len, value, value_len) } {
-            Ok((name, value)) => {
-                headers.headers.append(name, value);
+            Ok((name, value, orig_name)) => {
+                headers.headers.append(&name, value);
+                headers.orig_casing.append(name, orig_name);
                 hyper_code::HYPERE_OK
             }
             Err(code) => code,
@@ -215,8 +253,9 @@ unsafe fn raw_name_value(
     name_len: size_t,
     value: *const u8,
     value_len: size_t,
-) -> Result<(HeaderName, HeaderValue), hyper_code> {
+) -> Result<(HeaderName, HeaderValue, Bytes), hyper_code> {
     let name = std::slice::from_raw_parts(name, name_len);
+    let orig_name = Bytes::copy_from_slice(name);
     let name = match HeaderName::from_bytes(name) {
         Ok(name) => name,
         Err(_) => return Err(hyper_code::HYPERE_INVALID_ARG),
@@ -227,5 +266,24 @@ unsafe fn raw_name_value(
         Err(_) => return Err(hyper_code::HYPERE_INVALID_ARG),
     };
 
-    Ok((name, value))
+    Ok((name, value, orig_name))
+}
+
+// ===== impl HeaderCaseMap =====
+
+impl HeaderCaseMap {
+    pub(crate) fn get(&self, name: &HeaderName) -> Option<&Bytes> {
+        self.0.get(name)
+    }
+
+    pub(crate) fn insert(&mut self, name: HeaderName, orig: Bytes) {
+        self.0.insert(name, orig);
+    }
+
+    pub(crate) fn append<N>(&mut self, name: N, orig: Bytes)
+    where
+        N: http::header::IntoHeaderName,
+    {
+        self.0.append(name, orig);
+    }
 }

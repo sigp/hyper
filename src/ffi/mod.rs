@@ -11,6 +11,7 @@ mod io;
 mod task;
 
 pub(crate) use self::body::UserBody;
+pub(crate) use self::http_types::HeaderCaseMap;
 
 #[repr(C)]
 pub enum hyper_code {

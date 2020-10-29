@@ -161,6 +161,8 @@ where
                 ParseContext {
                     cached_headers: parse_ctx.cached_headers,
                     req_method: parse_ctx.req_method,
+                    #[cfg(feature = "ffi")]
+                    preserve_header_case: parse_ctx.preserve_header_case,
                 },
             )? {
                 Some(msg) => {
