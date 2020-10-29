@@ -125,6 +125,27 @@ ffi_fn! {
 }
 
 ffi_fn! {
+    /// Get the HTTP version used by this response.
+    ///
+    /// The returned value could be:
+    ///
+    /// - `HYPER_HTTP_VERSION_1_0`
+    /// - `HYPER_HTTP_VERSION_1_1`
+    /// - `HYPER_HTTP_VERSION_2`
+    /// - `HYPER_HTTP_VERSION_NONE` if newer (or older).
+    fn hyper_response_version(resp: *const hyper_response) -> c_int {
+        use http::Version;
+
+        match unsafe { &*resp }.0.version() {
+            Version::HTTP_10 => super::HYPER_HTTP_VERSION_1_0,
+            Version::HTTP_11 => super::HYPER_HTTP_VERSION_1_1,
+            Version::HTTP_2 => super::HYPER_HTTP_VERSION_2,
+            _ => super::HYPER_HTTP_VERSION_NONE,
+        }
+    }
+}
+
+ffi_fn! {
     /// Gets a reference to the HTTP headers of this response.
     ///
     /// This is not an owned reference, so it should not be accessed after the

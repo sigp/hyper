@@ -8,6 +8,14 @@
 
 #define HYPER_ITER_BREAK 1
 
+#define HYPER_HTTP_VERSION_NONE 0
+
+#define HYPER_HTTP_VERSION_1_0 10
+
+#define HYPER_HTTP_VERSION_1_1 11
+
+#define HYPER_HTTP_VERSION_2 20
+
 #define HYPER_IO_PENDING 4294967295
 
 #define HYPER_IO_ERROR 4294967294
@@ -261,6 +269,18 @@ void hyper_response_free(hyper_response *resp);
  It will always be within the range of 100-599.
  */
 uint16_t hyper_response_status(const hyper_response *resp);
+
+/*
+ Get the HTTP version used by this response.
+
+ The returned value could be:
+
+ - `HYPER_HTTP_VERSION_1_0`
+ - `HYPER_HTTP_VERSION_1_1`
+ - `HYPER_HTTP_VERSION_2`
+ - `HYPER_HTTP_VERSION_NONE` if newer (or older).
+ */
+int hyper_response_version(const hyper_response *resp);
 
 /*
  Gets a reference to the HTTP headers of this response.

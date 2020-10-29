@@ -20,8 +20,13 @@ pub enum hyper_code {
 }
 
 pub const HYPER_ITER_CONTINUE: libc::c_int = 0;
-
+#[allow(unused)]
 pub const HYPER_ITER_BREAK: libc::c_int = 1;
+
+pub const HYPER_HTTP_VERSION_NONE: libc::c_int = 0;
+pub const HYPER_HTTP_VERSION_1_0: libc::c_int = 10;
+pub const HYPER_HTTP_VERSION_1_1: libc::c_int = 11;
+pub const HYPER_HTTP_VERSION_2: libc::c_int = 20;
 
 struct AssertSendSafe<T>(T);
 
