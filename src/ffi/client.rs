@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use libc::c_int;
+
 use crate::client::conn;
 use crate::rt::Executor as _;
 
@@ -104,6 +106,14 @@ ffi_fn! {
     }
 }
 
+
+ffi_fn! {
+    /// Free a `hyper_clientconn_options *`.
+    fn hyper_clientconn_options_free(opts: *mut hyper_clientconn_options) {
+        drop(unsafe { Box::from_raw(opts) });
+    }
+}
+
 ffi_fn! {
     /// Set the client background task executor.
     ///
@@ -121,8 +131,12 @@ ffi_fn! {
 }
 
 ffi_fn! {
-    /// Free a `hyper_clientconn_options *`.
-    fn hyper_clientconn_options_free(opts: *mut hyper_clientconn_options) {
-        drop(unsafe { Box::from_raw(opts) });
+    /// Set the whether to use HTTP2.
+    ///
+    /// Pass `0` to disable, `1` to enable.
+    fn hyper_clientconn_options_http2(opts: *mut hyper_clientconn_options, enabled: c_int) {
+        let opts = unsafe { &mut *opts };
+
+        opts.builder.http2_only(enabled != 0);
     }
 }

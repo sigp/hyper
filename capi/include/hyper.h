@@ -209,6 +209,11 @@ void hyper_clientconn_free(hyper_clientconn *conn);
 hyper_clientconn_options *hyper_clientconn_options_new(void);
 
 /*
+ Free a `hyper_clientconn_options *`.
+ */
+void hyper_clientconn_options_free(hyper_clientconn_options *opts);
+
+/*
  Set the client background task executor.
 
  This does not consume the `options` or the `exec`.
@@ -216,9 +221,11 @@ hyper_clientconn_options *hyper_clientconn_options_new(void);
 void hyper_clientconn_options_exec(hyper_clientconn_options *opts, const hyper_executor *exec);
 
 /*
- Free a `hyper_clientconn_options *`.
+ Set the whether to use HTTP2.
+
+ Pass `0` to disable, `1` to enable.
  */
-void hyper_clientconn_options_free(hyper_clientconn_options *opts);
+void hyper_clientconn_options_http2(hyper_clientconn_options *opts, int enabled);
 
 /*
  Construct a new HTTP request.
