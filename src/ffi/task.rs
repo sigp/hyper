@@ -11,7 +11,8 @@ use std::task::{Context, Poll};
 use futures_util::stream::{FuturesUnordered, Stream};
 use libc::c_int;
 
-use super::{hyper_code, AssertSendSafe};
+use super::error::hyper_code;
+use super::AssertSendSafe;
 
 type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type BoxAny = Box<dyn AsTaskType + Send + Sync>;
@@ -64,10 +65,15 @@ pub struct hyper_waker {
 
 #[repr(C)]
 pub enum hyper_task_return_type {
+    /// The value of this task is null (does not imply an error).
     HYPER_TASK_EMPTY,
+    /// The value of this task is `hyper_error *`.
     HYPER_TASK_ERROR,
+    /// The value of this task is `hyper_clientconn *`.
     HYPER_TASK_CLIENTCONN,
+    /// The value of this task is `hyper_response *`.
     HYPER_TASK_RESPONSE,
+    /// The value of this task is `hyper_buf *`.
     HYPER_TASK_BUF,
 }
 

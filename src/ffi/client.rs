@@ -106,7 +106,6 @@ ffi_fn! {
     }
 }
 
-
 ffi_fn! {
     /// Free a `hyper_clientconn_options *`.
     fn hyper_clientconn_options_free(opts: *mut hyper_clientconn_options) {

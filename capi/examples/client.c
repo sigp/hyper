@@ -190,6 +190,9 @@ int main(int argc, char *argv[]) {
     // Let's wait for the handshake to finish...
     hyper_executor_push(exec, handshake);
 
+    // In case a task errors...
+    hyper_error *err;
+
     // The polling state machine!
     while (1) {
         // Poll all ready tasks and act on them...
@@ -203,7 +206,8 @@ int main(int argc, char *argv[]) {
                 ;
                 if (hyper_task_type(task) == HYPER_TASK_ERROR) {
                     printf("handshake error!\n");
-                    return 1;
+                    err = hyper_task_value(task);
+                    goto fail;
                 }
                 assert(hyper_task_type(task) == HYPER_TASK_CLIENTCONN);
 
@@ -240,7 +244,8 @@ int main(int argc, char *argv[]) {
                 ;
                 if (hyper_task_type(task) == HYPER_TASK_ERROR) {
                     printf("send error!\n");
-                    return 1;
+                    err = hyper_task_value(task);
+                    goto fail;
                 }
                 assert(hyper_task_type(task) == HYPER_TASK_RESPONSE);
 
@@ -271,7 +276,8 @@ int main(int argc, char *argv[]) {
                 ;
                 if (hyper_task_type(task) == HYPER_TASK_ERROR) {
                     printf("body error!\n");
-                    return 1;
+                    err = hyper_task_value(task);
+                    goto fail;
                 }
 
                 assert(hyper_task_type(task) == HYPER_TASK_EMPTY);
@@ -322,6 +328,17 @@ int main(int argc, char *argv[]) {
 
     }
 
-
     return 0;
+
+fail:
+    if (err) {
+        // grab the error details
+        char errbuf [256];
+        size_t errlen = hyper_error_print(err, errbuf, sizeof(errbuf));
+        printf("\tdetails: %.*s\n", (int) errlen, errbuf);
+
+        // clean up the error
+        hyper_error_free(err);
+    }
+    return 1;
 }

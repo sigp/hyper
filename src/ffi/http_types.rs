@@ -3,8 +3,9 @@ use libc::{c_int, size_t};
 use std::ffi::c_void;
 
 use super::body::hyper_body;
+use super::error::hyper_code;
 use super::task::{hyper_task_return_type, AsTaskType};
-use super::{hyper_code, HYPER_ITER_CONTINUE};
+use super::HYPER_ITER_CONTINUE;
 use crate::header::{HeaderName, HeaderValue};
 use crate::{Body, HeaderMap, Method, Request, Response, Uri};
 

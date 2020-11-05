@@ -27,15 +27,40 @@
 #define HYPER_POLL_ERROR 3
 
 typedef enum {
+  /*
+   All is well.
+   */
   HYPERE_OK,
+  /*
+   General error, details in the `hyper_error *`.
+   */
+  HYPERE_ERROR,
+  /*
+   A function argument was invalid.
+   */
   HYPERE_INVALID_ARG,
 } hyper_code;
 
 typedef enum {
+  /*
+   The value of this task is null (does not imply an error).
+   */
   HYPER_TASK_EMPTY,
+  /*
+   The value of this task is `hyper_error *`.
+   */
   HYPER_TASK_ERROR,
+  /*
+   The value of this task is `hyper_clientconn *`.
+   */
   HYPER_TASK_CLIENTCONN,
+  /*
+   The value of this task is `hyper_response *`.
+   */
   HYPER_TASK_RESPONSE,
+  /*
+   The value of this task is `hyper_buf *`.
+   */
   HYPER_TASK_BUF,
 } hyper_task_return_type;
 
@@ -54,6 +79,8 @@ typedef struct hyper_clientconn hyper_clientconn;
 typedef struct hyper_clientconn_options hyper_clientconn_options;
 
 typedef struct hyper_context hyper_context;
+
+typedef struct hyper_error hyper_error;
 
 typedef struct hyper_headers hyper_headers;
 
@@ -226,6 +253,26 @@ void hyper_clientconn_options_exec(hyper_clientconn_options *opts, const hyper_e
  Pass `0` to disable, `1` to enable.
  */
 void hyper_clientconn_options_http2(hyper_clientconn_options *opts, int enabled);
+
+/*
+ Frees a `hyper_error`.
+ */
+void hyper_error_free(hyper_error *err);
+
+/*
+ Get an equivalent `hyper_code` from this error.
+ */
+hyper_code hyper_error_code(const hyper_error *err);
+
+/*
+ Print the details of this error to a buffer.
+
+ The `dst_len` value must be the maximum length that the buffer can
+ store.
+
+ The return value is number of bytes that were written to `dst`.
+ */
+size_t hyper_error_print(const hyper_error *err, uint8_t *dst, size_t dst_len);
 
 /*
  Construct a new HTTP request.

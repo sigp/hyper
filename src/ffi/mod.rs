@@ -6,18 +6,13 @@ mod macros;
 
 mod body;
 mod client;
+mod error;
 mod http_types;
 mod io;
 mod task;
 
 pub(crate) use self::body::UserBody;
 pub(crate) use self::http_types::HeaderCaseMap;
-
-#[repr(C)]
-pub enum hyper_code {
-    HYPERE_OK,
-    HYPERE_INVALID_ARG,
-}
 
 pub const HYPER_ITER_CONTINUE: libc::c_int = 0;
 #[allow(unused)]
