@@ -23,13 +23,16 @@ include = [
 ]
 
 [dependencies]
-bytes = "0.5"
+bytes = "0.6"
 futures-core = { version = "0.3", default-features = false }
 futures-channel = "0.3"
 futures-util = { version = "0.3", default-features = false }
+# http = { git = "https://github.com/agemanning/http", branch = "lighthouse", optional = true }
+# http-body = { git = "https://github.com/agemanning/http-body", branch = "lighthouse" }
 http = "0.2"
 http-body = "0.3.1"
 httpdate = "0.3"
+# h2 = { git = "https://github.com/agemanning/h2", branch = "lighthouse", optional = true }
 httparse = "1.0"
 h2 = { git = "https://github.com/hyperium/h2", optional = true }
 itoa = "0.4.1"
@@ -64,7 +67,7 @@ tokio = { version = "0.3", features = [
     "test-util",
 ] }
 tokio-test = "0.3"
-tokio-util = { version = "0.4", features = ["codec"] }
+tokio-util = { version = "0.5", features = ["codec"] }
 tower-util = "0.3"
 url = "1.0"
 
@@ -244,3 +247,10 @@ required-features = ["runtime", "stream"]
 name = "server"
 path = "tests/server.rs"
 required-features = ["runtime"]
+
+[patch.crates-io]
+http = { git = "https://github.com/agemanning/http", branch = "lighthouse" }
+http-body = { git = "https://github.com/agemanning/http-body", branch = "lighthouse" }
+
+[patch."https://github.com/hyperium/h2"]
+h2 = { git = "https://github.com/agemanning/h2", branch = "lighthouse" }
