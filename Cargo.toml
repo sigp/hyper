@@ -27,14 +27,11 @@ bytes = "0.6"
 futures-core = { version = "0.3", default-features = false }
 futures-channel = "0.3"
 futures-util = { version = "0.3", default-features = false }
-# http = { git = "https://github.com/agemanning/http", branch = "lighthouse", optional = true }
-# http-body = { git = "https://github.com/agemanning/http-body", branch = "lighthouse" }
-http = "0.2"
-http-body = "0.3.1"
+http = { git = "https://github.com/agemanning/http", branch = "lighthouse" }
+http-body = { git = "https://github.com/agemanning/http-body", branch = "lighthouse" }
+h2 = { git = "https://github.com/agemanning/h2", branch = "lighthouse", optional = true }
 httpdate = "0.3"
-# h2 = { git = "https://github.com/agemanning/h2", branch = "lighthouse", optional = true }
 httparse = "1.0"
-h2 = { git = "https://github.com/hyperium/h2", optional = true }
 itoa = "0.4.1"
 tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
 pin-project = "1.0"
@@ -247,10 +244,3 @@ required-features = ["runtime", "stream"]
 name = "server"
 path = "tests/server.rs"
 required-features = ["runtime"]
-
-[patch.crates-io]
-http = { git = "https://github.com/agemanning/http", branch = "lighthouse" }
-http-body = { git = "https://github.com/agemanning/http-body", branch = "lighthouse" }
-
-[patch."https://github.com/hyperium/h2"]
-h2 = { git = "https://github.com/agemanning/h2", branch = "lighthouse" }
